@@ -8,7 +8,6 @@ import {
   query,
   orderBy,
   Timestamp,
-  DocumentData,
   Unsubscribe,
 } from 'firebase/firestore';
 
@@ -106,20 +105,14 @@ export interface ROTLog {
 
 // ─── Session Functions ────────────────────────────────────────────────────────
 
-/**
- * Membuat sesi pasien baru dan mengatur active session.
- * Returns patientId yang dibuat.
- */
 export async function startPatientSession(
   nurseName: string,
   patientName: string,
   mode: MeasurementMode
 ): Promise<string> {
-  // 1. Generate ID dulu secara lokal — tidak perlu round-trip ke server
   const patientRef = doc(collection(db, 'patients'));
   const patientId = patientRef.id;
 
-  // 2. Tulis dokumen pasien + active session secara paralel (Promise.all)
   await Promise.all([
     setDoc(patientRef, {
       patientId,
@@ -140,9 +133,6 @@ export async function startPatientSession(
   return patientId;
 }
 
-/**
- * Update settings/activeSession
- */
 export async function updateActiveSession(
   patientId: string,
   patientName: string,
@@ -158,12 +148,7 @@ export async function updateActiveSession(
   });
 }
 
-/**
- * Update hanya mode pada active session
- */
-export async function updateSessionMode(
-  mode: MeasurementMode
-): Promise<void> {
+export async function updateSessionMode(mode: MeasurementMode): Promise<void> {
   await setDoc(
     doc(db, 'settings', 'activeSession'),
     { mode, updatedAt: Timestamp.now() },
@@ -173,9 +158,6 @@ export async function updateSessionMode(
 
 // ─── Realtime Listeners ───────────────────────────────────────────────────────
 
-/**
- * Listen ke settings/activeSession
- */
 export function listenActiveSession(
   callback: (session: ActiveSession | null) => void
 ): Unsubscribe {
@@ -188,10 +170,27 @@ export function listenActiveSession(
   });
 }
 
-/**
- * Listen ke dokumen pasien (profile + latestMeasurement + latestROT)
- */
+// ✅ LIST SEMUA PASIEN (FIX ERROR KAMU)
+export function listenPatients(
+  callback: (patients: Patient[]) => void
+): Unsubscribe {
+  const q = query(
+    collection(db, 'patients'),
+    orderBy('createdAt', 'desc')
+  );
+
+  return onSnapshot(q, (snap) => {
+    const results: Patient[] = snap.docs.map((d) => ({
+      ...(d.data() as Patient),
+    }));
+
+    callback(results);
+  });
+}
+
+// ✅ DETAIL SATU PASIEN
 export function listenPatient(
+  patientId: string,
   callback: (patient: Patient | null) => void
 ): Unsubscribe {
   return onSnapshot(doc(db, 'patients', patientId), (snap) => {
@@ -203,9 +202,6 @@ export function listenPatient(
   });
 }
 
-/**
- * Listen ke latestMeasurement dari dokumen pasien
- */
 export function listenLatestMeasurement(
   patientId: string,
   callback: (measurement: LatestMeasurement | null) => void
@@ -220,9 +216,6 @@ export function listenLatestMeasurement(
   });
 }
 
-/**
- * Listen ke latestROT dari dokumen pasien
- */
 export function listenLatestROT(
   patientId: string,
   callback: (rot: LatestROT | null) => void
@@ -237,9 +230,6 @@ export function listenLatestROT(
   });
 }
 
-/**
- * Listen ke subcollection measurements (ordered by timestamp_ms desc)
- */
 export function listenMeasurements(
   patientId: string,
   callback: (measurements: Measurement[]) => void
@@ -248,18 +238,17 @@ export function listenMeasurements(
     collection(db, 'patients', patientId, 'measurements'),
     orderBy('timestamp_ms', 'desc')
   );
+
   return onSnapshot(q, (snap) => {
     const results: Measurement[] = snap.docs.map((d) => ({
       id: d.id,
       ...(d.data() as Omit<Measurement, 'id'>),
     }));
+
     callback(results);
   });
 }
 
-/**
- * Listen ke subcollection rotLogs (ordered by timestamp_ms desc)
- */
 export function listenROTLogs(
   patientId: string,
   callback: (logs: ROTLog[]) => void
@@ -268,26 +257,13 @@ export function listenROTLogs(
     collection(db, 'patients', patientId, 'rotLogs'),
     orderBy('timestamp_ms', 'desc')
   );
+
   return onSnapshot(q, (snap) => {
     const results: ROTLog[] = snap.docs.map((d) => ({
       id: d.id,
       ...(d.data() as Omit<ROTLog, 'id'>),
     }));
-    callback(results);
-  });
-}
 
-/**
- * Listen ke semua pasien (collection patients, ordered by createdAt desc)
- */
-export function listenPatients(
-  callback: (patients: Patient[]) => void
-): Unsubscribe {
-  const q = query(collection(db, 'patients'), orderBy('createdAt', 'desc'));
-  return onSnapshot(q, (snap) => {
-    const results: Patient[] = snap.docs.map((d) => ({
-      ...(d.data() as Patient),
-    }));
     callback(results);
   });
 }
