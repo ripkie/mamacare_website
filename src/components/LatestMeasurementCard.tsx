@@ -11,8 +11,8 @@ interface LatestMeasurementCardProps {
 
 function classifyBP(sbp: number, dbp: number) {
   if (sbp >= 160 || dbp >= 110) return { label: 'Berat', color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200' };
-  if (sbp >= 140 || dbp >= 90)  return { label: 'Tinggi', color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' };
-  if (sbp >= 130 || dbp >= 80)  return { label: 'Elevated', color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200' };
+  if (sbp >= 140 || dbp >= 90) return { label: 'Tinggi', color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' };
+  if (sbp >= 130 || dbp >= 80) return { label: 'Rendah', color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200' };
   return { label: 'Normal', color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200' };
 }
 

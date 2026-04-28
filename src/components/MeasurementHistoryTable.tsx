@@ -10,8 +10,8 @@ interface MeasurementHistoryTableProps {
 
 function bpClass(sbp: number, dbp: number) {
   if (sbp >= 160 || dbp >= 110) return 'text-red-600 bg-red-50';
-  if (sbp >= 140 || dbp >= 90)  return 'text-orange-600 bg-orange-50';
-  if (sbp >= 130 || dbp >= 80)  return 'text-amber-600 bg-amber-50';
+  if (sbp >= 140 || dbp >= 90) return 'text-orange-600 bg-orange-50';
+  if (sbp >= 130 || dbp >= 80) return 'text-amber-600 bg-amber-50';
   return 'text-green-600 bg-green-50';
 }
 
@@ -38,7 +38,7 @@ export default function MeasurementHistoryTable({ measurements }: MeasurementHis
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-brand-gray-soft border-b border-brand-gray-border">
-                {['Waktu', 'SBP', 'DBP', 'BPM', 'MAP', 'Petugas', 'Status'].map((h) => (
+                {['Waktu', 'SBP', 'DBP', 'BPM', 'MAP', 'Petugas', 'Status Preeklampsia'].map((h) => (
                   <th key={h} className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-brand-navy/50 whitespace-nowrap">
                     {h}
                   </th>
@@ -65,8 +65,8 @@ export default function MeasurementHistoryTable({ measurements }: MeasurementHis
                       bpClass(m.sbp, m.dbp)
                     )}>
                       {m.sbp >= 160 || m.dbp >= 110 ? 'Berat' :
-                       m.sbp >= 140 || m.dbp >= 90 ? 'Tinggi' :
-                       m.sbp >= 130 || m.dbp >= 80 ? 'Elevated' : 'Normal'}
+                        m.sbp >= 140 || m.dbp >= 90 ? 'Tinggi' :
+                          m.sbp >= 130 || m.dbp >= 80 ? 'Normal' : 'Ideal'}
                     </span>
                   </td>
                 </tr>

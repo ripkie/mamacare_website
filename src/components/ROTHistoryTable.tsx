@@ -37,7 +37,7 @@ export default function ROTHistoryTable({ logs }: ROTHistoryTableProps) {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-brand-gray-soft border-b border-brand-gray-border">
-                {['Waktu', 'DBP Miring', 'DBP Terlentang', 'ROT', 'Petugas', 'Hasil'].map((h) => (
+                {['Waktu', 'DBP Miring', 'DBP Terlentang', 'ROT', 'Petugas', 'Hasil Preeklampsia'].map((h) => (
                   <th key={h} className="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-wide text-brand-navy/50 whitespace-nowrap">
                     {h}
                   </th>
@@ -64,7 +64,7 @@ export default function ROTHistoryTable({ logs }: ROTHistoryTableProps) {
                       'text-xs font-bold px-2.5 py-1 rounded-full',
                       rotClass(l.rot)
                     )}>
-                      {l.rot >= 20 ? 'Positif Kuat' : l.rot >= 15 ? 'Positif' : 'Negatif'}
+                      {l.rot >= 20 ? 'Positif Kuat' : l.rot >= 15 ? 'Positif / Beresiko' : 'Negatif / Tidak beresiko'}
                     </span>
                   </td>
                 </tr>
