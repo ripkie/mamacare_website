@@ -83,8 +83,8 @@ export default function PatientList({
                     isActive
                       ? 'bg-green-500 text-white'
                       : isSelected
-                      ? 'bg-brand-yellow2 text-brand-navy'
-                      : 'bg-brand-navy/10 text-brand-navy/60'
+                        ? 'bg-brand-yellow2 text-brand-navy'
+                        : 'bg-brand-navy/10 text-brand-navy/60'
                   )}>
                     {p.patientName.charAt(0).toUpperCase()}
                   </div>

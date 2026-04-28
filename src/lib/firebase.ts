@@ -11,8 +11,6 @@ import {
   Unsubscribe,
 } from 'firebase/firestore';
 
-// ─── Firebase Init ────────────────────────────────────────────────────────────
-
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -25,15 +23,10 @@ const firebaseConfig = {
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export type MeasurementMode = 'single' | 'rot';
-
 export interface ActiveSession {
   patientId: string;
   patientName: string;
   nurseName: string;
-  mode: MeasurementMode;
   updatedAt: Timestamp;
 }
 
@@ -103,12 +96,9 @@ export interface ROTLog {
   terlentang?: MiringTerlentang;
 }
 
-// ─── Session Functions ────────────────────────────────────────────────────────
-
 export async function startPatientSession(
   nurseName: string,
-  patientName: string,
-  mode: MeasurementMode
+  patientName: string
 ): Promise<string> {
   const patientRef = doc(collection(db, 'patients'));
   const patientId = patientRef.id;
@@ -125,7 +115,6 @@ export async function startPatientSession(
       patientId,
       patientName,
       nurseName,
-      mode,
       updatedAt: Timestamp.now(),
     }),
   ]);
@@ -136,69 +125,41 @@ export async function startPatientSession(
 export async function updateActiveSession(
   patientId: string,
   patientName: string,
-  nurseName: string,
-  mode: MeasurementMode
+  nurseName: string
 ): Promise<void> {
   await setDoc(doc(db, 'settings', 'activeSession'), {
     patientId,
     patientName,
     nurseName,
-    mode,
     updatedAt: Timestamp.now(),
   });
 }
-
-export async function updateSessionMode(mode: MeasurementMode): Promise<void> {
-  await setDoc(
-    doc(db, 'settings', 'activeSession'),
-    { mode, updatedAt: Timestamp.now() },
-    { merge: true }
-  );
-}
-
-// ─── Realtime Listeners ───────────────────────────────────────────────────────
 
 export function listenActiveSession(
   callback: (session: ActiveSession | null) => void
 ): Unsubscribe {
   return onSnapshot(doc(db, 'settings', 'activeSession'), (snap) => {
-    if (snap.exists()) {
-      callback(snap.data() as ActiveSession);
-    } else {
-      callback(null);
-    }
+    callback(snap.exists() ? (snap.data() as ActiveSession) : null);
   });
 }
 
-// ✅ LIST SEMUA PASIEN (FIX ERROR KAMU)
 export function listenPatients(
   callback: (patients: Patient[]) => void
 ): Unsubscribe {
-  const q = query(
-    collection(db, 'patients'),
-    orderBy('createdAt', 'desc')
-  );
+  const q = query(collection(db, 'patients'), orderBy('createdAt', 'desc'));
 
   return onSnapshot(q, (snap) => {
-    const results: Patient[] = snap.docs.map((d) => ({
-      ...(d.data() as Patient),
-    }));
-
+    const results: Patient[] = snap.docs.map((d) => d.data() as Patient);
     callback(results);
   });
 }
 
-// ✅ DETAIL SATU PASIEN
 export function listenPatient(
   patientId: string,
   callback: (patient: Patient | null) => void
 ): Unsubscribe {
   return onSnapshot(doc(db, 'patients', patientId), (snap) => {
-    if (snap.exists()) {
-      callback(snap.data() as Patient);
-    } else {
-      callback(null);
-    }
+    callback(snap.exists() ? (snap.data() as Patient) : null);
   });
 }
 
@@ -207,12 +168,9 @@ export function listenLatestMeasurement(
   callback: (measurement: LatestMeasurement | null) => void
 ): Unsubscribe {
   return onSnapshot(doc(db, 'patients', patientId), (snap) => {
-    if (snap.exists()) {
-      const data = snap.data() as Patient;
-      callback(data.latestMeasurement ?? null);
-    } else {
-      callback(null);
-    }
+    if (!snap.exists()) return callback(null);
+    const data = snap.data() as Patient;
+    callback(data.latestMeasurement ?? null);
   });
 }
 
@@ -221,12 +179,9 @@ export function listenLatestROT(
   callback: (rot: LatestROT | null) => void
 ): Unsubscribe {
   return onSnapshot(doc(db, 'patients', patientId), (snap) => {
-    if (snap.exists()) {
-      const data = snap.data() as Patient;
-      callback(data.latestROT ?? null);
-    } else {
-      callback(null);
-    }
+    if (!snap.exists()) return callback(null);
+    const data = snap.data() as Patient;
+    callback(data.latestROT ?? null);
   });
 }
 
