@@ -10,7 +10,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </main>
 
       <footer className="hidden sm:block border-t border-brand-gray-border bg-white py-3 text-center text-[11px] text-brand-navy/40 font-medium">
-        MamaCare © {new Date().getFullYear()} — Maternal Health Monitoring System
+        MamaCare © {new Date().getFullYear()} - Maternal Health Monitoring System
       </footer>
     </div>
   );
