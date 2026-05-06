@@ -8,7 +8,15 @@ import {
     type Patient,
     type Measurement,
 } from '@/lib/firebase';
-import { Search, ArrowUpDown, CalendarDays, Filter, ClipboardList } from 'lucide-react';
+import {
+    Search,
+    ArrowUpDown,
+    CalendarDays,
+    Filter,
+    ClipboardList,
+    Download,
+} from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 type SortBy = 'date_desc' | 'date_asc' | 'name_asc' | 'name_desc';
 
@@ -21,6 +29,25 @@ const months = [
     'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
     'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
 ];
+
+function getItemDate(item: HistoryItem) {
+    if (item.timestamp_ms && item.timestamp_ms > 1000000000000) {
+        return new Date(item.timestamp_ms);
+    }
+
+    if (item.datetime) {
+        return new Date(item.datetime.replace(' ', 'T'));
+    }
+
+    return new Date(0);
+}
+
+function classifyBP(sbp: number, dbp: number) {
+    if (sbp >= 160 || dbp >= 110) return 'Berat';
+    if (sbp >= 140 || dbp >= 90) return 'Tinggi';
+    if (sbp >= 130 || dbp >= 80) return 'Waspada';
+    return 'Normal';
+}
 
 export default function HistoryPage() {
     const [patients, setPatients] = useState<Patient[]>([]);
@@ -74,9 +101,8 @@ export default function HistoryPage() {
         const years = new Set<number>();
 
         items.forEach((item) => {
-            if (item.timestamp_ms) {
-                years.add(new Date(item.timestamp_ms).getFullYear());
-            }
+            const year = getItemDate(item).getFullYear();
+            if (year > 2000) years.add(year);
         });
 
         return Array.from(years).sort((a, b) => b - a);
@@ -86,7 +112,7 @@ export default function HistoryPage() {
         const keyword = search.toLowerCase();
 
         const result = items.filter((item) => {
-            const date = new Date(item.timestamp_ms);
+            const date = getItemDate(item);
 
             const searchMatch =
                 item.patientName.toLowerCase().includes(keyword) ||
@@ -103,8 +129,11 @@ export default function HistoryPage() {
         });
 
         result.sort((a, b) => {
-            if (sortBy === 'date_desc') return b.timestamp_ms - a.timestamp_ms;
-            if (sortBy === 'date_asc') return a.timestamp_ms - b.timestamp_ms;
+            const dateA = getItemDate(a).getTime();
+            const dateB = getItemDate(b).getTime();
+
+            if (sortBy === 'date_desc') return dateB - dateA;
+            if (sortBy === 'date_asc') return dateA - dateB;
             if (sortBy === 'name_asc') return a.patientName.localeCompare(b.patientName);
             if (sortBy === 'name_desc') return b.patientName.localeCompare(a.patientName);
             return 0;
@@ -112,6 +141,48 @@ export default function HistoryPage() {
 
         return result;
     }, [items, search, sortBy, monthFilter, yearFilter]);
+
+    const handleExportExcel = () => {
+        const rows = filtered.map((item, index) => ({
+            No: index + 1,
+            Tanggal: item.datetime,
+            'Nama Pasien': item.patientName,
+            Petugas: item.nurseName,
+            SBP: item.sbp,
+            DBP: item.dbp,
+            BPM: item.bpm,
+            MAP: item.map,
+            'Status Tekanan Darah': classifyBP(item.sbp, item.dbp),
+            'Patient ID': item.patientId,
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(rows);
+
+        worksheet['!cols'] = [
+            { wch: 6 },
+            { wch: 22 },
+            { wch: 22 },
+            { wch: 18 },
+            { wch: 8 },
+            { wch: 8 },
+            { wch: 8 },
+            { wch: 8 },
+            { wch: 22 },
+            { wch: 28 },
+        ];
+
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Riwayat Pengukuran');
+
+        const monthName =
+            monthFilter === 'all' ? 'semua-bulan' : months[Number(monthFilter)];
+        const yearName = yearFilter === 'all' ? 'semua-tahun' : yearFilter;
+
+        XLSX.writeFile(
+            workbook,
+            `riwayat-pengukuran-${monthName}-${yearName}.xlsx`
+        );
+    };
 
     return (
         <AppShell>
@@ -210,26 +281,24 @@ export default function HistoryPage() {
                         </div>
                     </div>
 
-                    <div className="mt-4 flex flex-wrap gap-2">
-                        <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-brand-yellow1/20 text-brand-navy">
-                            Total: {items.length}
-                        </span>
-                        <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-green-50 text-green-700 border border-green-200">
-                            Tampil: {filtered.length}
-                        </span>
-                        {(search || monthFilter !== 'all' || yearFilter !== 'all') && (
-                            <button
-                                onClick={() => {
-                                    setSearch('');
-                                    setMonthFilter('all');
-                                    setYearFilter('all');
-                                    setSortBy('date_desc');
-                                }}
-                                className="text-xs font-bold px-3 py-1.5 rounded-full bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
-                            >
-                                Reset Filter
-                            </button>
-                        )}
+                    <div className="mt-4 flex flex-wrap gap-2 items-center justify-between">
+                        <div className="flex flex-wrap gap-2">
+                            <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-brand-yellow1/20 text-brand-navy">
+                                Total: {items.length}
+                            </span>
+                            <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-green-50 text-green-700 border border-green-200">
+                                Tampil: {filtered.length}
+                            </span>
+                        </div>
+
+                        <button
+                            onClick={handleExportExcel}
+                            disabled={filtered.length === 0}
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-yellow2 text-brand-navy text-xs font-bold hover:bg-brand-yellow1 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <Download size={15} />
+                            Export Excel
+                        </button>
                     </div>
                 </div>
             </div>
@@ -265,104 +334,48 @@ export default function HistoryPage() {
                         </p>
                     </div>
                 ) : (
-                    <>
-                        <div className="hidden md:block overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead className="bg-brand-gray-soft text-brand-navy/50">
-                                    <tr>
-                                        <th className="text-left px-5 py-3 font-bold uppercase text-[11px]">Tanggal</th>
-                                        <th className="text-left px-5 py-3 font-bold uppercase text-[11px]">Pasien</th>
-                                        <th className="text-left px-5 py-3 font-bold uppercase text-[11px]">Petugas</th>
-                                        <th className="text-left px-5 py-3 font-bold uppercase text-[11px]">SBP</th>
-                                        <th className="text-left px-5 py-3 font-bold uppercase text-[11px]">DBP</th>
-                                        <th className="text-left px-5 py-3 font-bold uppercase text-[11px]">BPM</th>
-                                        <th className="text-left px-5 py-3 font-bold uppercase text-[11px]">MAP</th>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead className="bg-brand-gray-soft text-brand-navy/50">
+                                <tr>
+                                    <th className="text-left px-5 py-3 font-bold uppercase text-[11px]">Tanggal</th>
+                                    <th className="text-left px-5 py-3 font-bold uppercase text-[11px]">Pasien</th>
+                                    <th className="text-left px-5 py-3 font-bold uppercase text-[11px]">Petugas</th>
+                                    <th className="text-left px-5 py-3 font-bold uppercase text-[11px]">SBP</th>
+                                    <th className="text-left px-5 py-3 font-bold uppercase text-[11px]">DBP</th>
+                                    <th className="text-left px-5 py-3 font-bold uppercase text-[11px]">BPM</th>
+                                    <th className="text-left px-5 py-3 font-bold uppercase text-[11px]">MAP</th>
+                                    <th className="text-left px-5 py-3 font-bold uppercase text-[11px]">Status</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                {filtered.map((item, index) => (
+                                    <tr
+                                        key={`${item.patientId}-${item.id ?? index}`}
+                                        className="border-t border-brand-gray-border hover:bg-brand-yellow1/5 transition"
+                                    >
+                                        <td className="px-5 py-4 text-brand-navy/60 font-medium whitespace-nowrap">
+                                            {item.datetime}
+                                        </td>
+                                        <td className="px-5 py-4 font-bold text-brand-navy">
+                                            {item.patientName}
+                                        </td>
+                                        <td className="px-5 py-4 text-brand-navy/60">
+                                            {item.nurseName}
+                                        </td>
+                                        <td className="px-5 py-4 font-bold text-brand-navy">{item.sbp}</td>
+                                        <td className="px-5 py-4 font-bold text-brand-navy">{item.dbp}</td>
+                                        <td className="px-5 py-4 text-brand-navy/70">{item.bpm}</td>
+                                        <td className="px-5 py-4 text-brand-navy/70">{item.map}</td>
+                                        <td className="px-5 py-4 font-bold text-brand-navy/70">
+                                            {classifyBP(item.sbp, item.dbp)}
+                                        </td>
                                     </tr>
-                                </thead>
-
-                                <tbody>
-                                    {filtered.map((item, index) => (
-                                        <tr
-                                            key={`${item.patientId}-${item.id ?? index}`}
-                                            className="border-t border-brand-gray-border hover:bg-brand-yellow1/5 transition"
-                                        >
-                                            <td className="px-5 py-4 text-brand-navy/60 font-medium">
-                                                {item.datetime}
-                                            </td>
-                                            <td className="px-5 py-4 font-bold text-brand-navy">
-                                                {item.patientName}
-                                            </td>
-                                            <td className="px-5 py-4 text-brand-navy/60">
-                                                {item.nurseName}
-                                            </td>
-                                            <td className="px-5 py-4 font-bold text-brand-navy">
-                                                {item.sbp}
-                                            </td>
-                                            <td className="px-5 py-4 font-bold text-brand-navy">
-                                                {item.dbp}
-                                            </td>
-                                            <td className="px-5 py-4 text-brand-navy/70">
-                                                {item.bpm}
-                                            </td>
-                                            <td className="px-5 py-4 text-brand-navy/70">
-                                                {item.map}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <div className="md:hidden divide-y divide-brand-gray-border">
-                            {filtered.map((item, index) => (
-                                <div key={`${item.patientId}-${item.id ?? index}`} className="p-4">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div>
-                                            <p className="font-bold text-brand-navy">
-                                                {item.patientName}
-                                            </p>
-                                            <p className="text-xs text-brand-navy/45 mt-0.5">
-                                                {item.nurseName} · {item.datetime}
-                                            </p>
-                                        </div>
-
-                                        <span className="text-xs font-bold px-2 py-1 rounded-full bg-brand-yellow1/20 text-brand-navy">
-                                            {item.sbp}/{item.dbp}
-                                        </span>
-                                    </div>
-
-                                    <div className="grid grid-cols-3 gap-2 mt-4">
-                                        <div className="bg-brand-gray-soft rounded-xl p-3">
-                                            <p className="text-[10px] uppercase text-brand-navy/40 font-bold">
-                                                BPM
-                                            </p>
-                                            <p className="font-bold text-brand-navy mt-1">
-                                                {item.bpm}
-                                            </p>
-                                        </div>
-
-                                        <div className="bg-brand-gray-soft rounded-xl p-3">
-                                            <p className="text-[10px] uppercase text-brand-navy/40 font-bold">
-                                                MAP
-                                            </p>
-                                            <p className="font-bold text-brand-navy mt-1">
-                                                {item.map}
-                                            </p>
-                                        </div>
-
-                                        <div className="bg-brand-gray-soft rounded-xl p-3">
-                                            <p className="text-[10px] uppercase text-brand-navy/40 font-bold">
-                                                DBP
-                                            </p>
-                                            <p className="font-bold text-brand-navy mt-1">
-                                                {item.dbp}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
             </div>
         </AppShell>
